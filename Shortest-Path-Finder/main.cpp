@@ -45,7 +45,7 @@ datFileInfo getDatFile(namedPlace start, namedPlace end)
     datFileInfo bestFile{};
     double smallestArea = 0.0;
 
-    fstream fin("Shortest-Path-Finder/coverage.txt");
+    fstream fin("Shortest-Path-Finder/data/coverage.txt");
     if (!fin) {
         cout << "Error opening coverage.txt" << endl;
         return datFileInfo{};
@@ -95,7 +95,7 @@ Color colorFromHLS(float h, float l, float s)
 
 Image drawMap(datFileInfo& datFile)
 {
-    ifstream fin("Shortest-Path-Finder/" + datFile.fileName, ios::in | ios::binary);
+    ifstream fin("Shortest-Path-Finder/data/" + datFile.fileName, ios::in | ios::binary);
     if (!fin) {
         cout << "Error opening " << datFile.fileName << endl;
         return Image{};

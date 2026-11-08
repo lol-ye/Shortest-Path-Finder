@@ -6,7 +6,7 @@ Graph::Graph()
 {
     ifstream fin;
     // Load intersections
-    fin.open("Shortest-Path-Finder/intersections.txt");
+    fin.open("Shortest-Path-Finder/data/intersections.txt");
     if (!fin)
     {
         cerr << "Error opening intersections.txt" << endl;
@@ -32,7 +32,7 @@ Graph::Graph()
     fin.close();
 
     // Load connections
-    fin.open("Shortest-Path-Finder/connections.txt");
+    fin.open("Shortest-Path-Finder/data/connections.txt");
     if (!fin)
     {
         cerr << "Error opening connections.txt" << endl;
