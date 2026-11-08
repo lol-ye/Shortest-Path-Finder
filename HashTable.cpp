@@ -203,7 +203,7 @@ namedPlace HashTable::findItem(const string& placeName, const string& state)
 
 void HashTable::buildTable()
 {
-    ifstream fin("named-places.txt");
+    ifstream fin("Shortest-Path-Finder/named-places.txt");
     if (!fin)
     {
         cerr << "Error opening file." << endl;

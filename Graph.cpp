@@ -1,11 +1,12 @@
 #include "Graph.h"
 #include "HashTable.h"
+#include <limits>
 
 Graph::Graph()
 {
     ifstream fin;
     // Load intersections
-    fin.open("intersections.txt");
+    fin.open("Shortest-Path-Finder/intersections.txt");
     if (!fin)
     {
         cerr << "Error opening intersections.txt" << endl;
@@ -31,7 +32,7 @@ Graph::Graph()
     fin.close();
 
     // Load connections
-    fin.open("connections.txt");
+    fin.open("Shortest-Path-Finder/connections.txt");
     if (!fin)
     {
         cerr << "Error opening connections.txt" << endl;
@@ -124,12 +125,7 @@ string determineDirection(double lat1, double lon1, double lat2, double lon2)
 
 int Graph::getIndex(intersection* inter)
 {
-    for (int i = 0; i < intersections.size(); i++)
-        {
-            if (&intersections[i] == inter)
-                return i;
-        }
-    return -1;
+    return inter - &intersections[0];
 }
 
 vector<connection*> Graph::findShortestRoute(intersection* start, intersection* end)

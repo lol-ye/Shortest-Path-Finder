@@ -4,7 +4,8 @@
 #include <vector>
 #include "HashTable.h"
 #include "Graph.h"
-#include "library.h"
+#include <algorithm>
+#include "raylib.h"
 
 using namespace std;
 
@@ -44,7 +45,7 @@ datFileInfo getDatFile(namedPlace start, namedPlace end)
     datFileInfo bestFile{};
     double smallestArea = 0.0;
 
-    fstream fin("coverage.txt");
+    fstream fin("Shortest-Path-Finder/coverage.txt");
     if (!fin) {
         cout << "Error opening coverage.txt" << endl;
         return datFileInfo{};
@@ -85,12 +86,19 @@ datFileInfo getDatFile(namedPlace start, namedPlace end)
     return bestFile;
 }
 
-void drawMap(datFileInfo& datFile)
+// raylib only has HSV, so convert the HLS values the original colouring used
+Color colorFromHLS(float h, float l, float s)
 {
-    ifstream fin(datFile.fileName, ios::in | ios::binary);
+    float v = l + s * min(l, 1 - l);
+    return ColorFromHSV(h * 360, v == 0 ? 0 : 2 * (1 - l / v), v);
+}
+
+Image drawMap(datFileInfo& datFile)
+{
+    ifstream fin("Shortest-Path-Finder/" + datFile.fileName, ios::in | ios::binary);
     if (!fin) {
         cout << "Error opening " << datFile.fileName << endl;
-        return;
+        return Image{};
     }
 
     string key;
@@ -114,17 +122,18 @@ void drawMap(datFileInfo& datFile)
         else if (key == "specialval")      specialVal      = value;
     }
 
-    fin.seekg(datFile.rows * bytesPerPixel, ios::beg);
+    fin.seekg(datFile.columns * bytesPerPixel, ios::beg);   // header is padded to one row
 
     vector<short> pixelData(datFile.rows * datFile.columns);
     fin.read(reinterpret_cast<char*>(pixelData.data()),
              datFile.rows * datFile.columns * bytesPerPixel);
     if (!fin) {
         cout << "Error reading pixel data\n";
-        return;
+        return Image{};
     }
 
-    make_window(datFile.columns, datFile.rows);   // width = columns, height = rows
+    InitWindow(datFile.columns, datFile.rows, "Shortest Path");   // must come before text drawing: it loads the default font
+    Image map = GenImageColor(datFile.columns, datFile.rows, BLACK);   // width = columns, height = rows
 
     for (int r = 0; r < datFile.rows; r++)
     {
@@ -134,7 +143,7 @@ void drawMap(datFileInfo& datFile)
 
             if (h == specialVal)
             {
-                set_pixel_color(c, r, color::blue);
+                ImageDrawPixel(&map, c, r, BLUE);
                 continue;
             }
             else
@@ -147,13 +156,12 @@ void drawMap(datFileInfo& datFile)
                 float lightness  = 0.3f  + 0.7f  * t;   // dark → bright
                 float saturation = 1.0f;
 
-                int color = make_color_hls(hue, lightness, saturation);
-
-                set_pixel_color(c, r, color);
+                ImageDrawPixel(&map, c, r, colorFromHLS(hue, lightness, saturation));
             }
         }
     }
     fin.close();
+    return map;
 }
 
 pair<int,int> latLonToXY(double latitude, double longitude, const datFileInfo& datFile)
@@ -168,26 +176,48 @@ pair<int,int> latLonToXY(double latitude, double longitude, const datFileInfo& d
     return {x, y};
 }
 
-void drawPath(vector<connection*> path, namedPlace start, namedPlace end, const datFileInfo& datFile)
+//Label centred just above (x, y)
+void drawLabel(Image& map, const string& text, pair<int,int> xy)
+{
+    int width = MeasureText(text.c_str(), 10);
+    ImageDrawText(&map, text.c_str(), xy.first - width / 2, xy.second - 12, 10, RED);
+}
+
+void drawPath(Image& map, vector<connection*> path, namedPlace start, namedPlace end, const datFileInfo& datFile)
 {
     pair<int,int> startXY = latLonToXY(start.latitude, start.longitude, datFile);
     pair<int,int> endXY = latLonToXY(end.latitude, end.longitude, datFile);
-    move_to(startXY.first, startXY.second);
-    set_pen_width_color(3, color::red);
-    write_string(start.name, direction::north);
-    set_pen_color(color::black);
-    
+    drawLabel(map, start.name, startXY);
+
+    Vector2 pen = {(float)startXY.first, (float)startXY.second};
     for(connection* conn : path)
     {
         pair<int,int> connXY = latLonToXY(conn->inter2->latitude, conn->inter2->longitude, datFile);
-        draw_to(connXY.first, connXY.second);
+        Vector2 next = {(float)connXY.first, (float)connXY.second};
+        ImageDrawLineEx(&map, pen, next, 3, BLACK);
+        pen = next;
     }
-    draw_to(endXY.first, endXY.second);
-    set_pen_color(color::red);
-    write_string(end.name, direction::north);
+    ImageDrawLineEx(&map, pen, {(float)endXY.first, (float)endXY.second}, 3, BLACK);
+    drawLabel(map, end.name, endXY);
 }
 
-void main()
+//Opens a window showing the map until the user closes it
+void showMap(Image& map)
+{
+    Texture2D texture = LoadTextureFromImage(map);
+    SetTargetFPS(30);
+    while(!WindowShouldClose())
+    {
+        BeginDrawing();
+        DrawTexture(texture, 0, 0, WHITE);
+        EndDrawing();
+    }
+    UnloadTexture(texture);
+    CloseWindow();
+    UnloadImage(map);
+}
+
+int main()
 {
     HashTable HT;
     Graph G;
@@ -276,7 +306,7 @@ void main()
     if(startPlace.name == endPlace.name && startPlace.state == endPlace.state)
     {
         cout << "You are already at your destination: " << endPlace.name << " " << endPlace.state << endl;
-        return;
+        return 0;
     }
     
     //Distance of startplace to its nearest intersection
@@ -316,8 +346,10 @@ void main()
     }
     cout << "Total Distance: " << totalDistance << endl;
     datFileInfo datFile = getDatFile(startPlace, endPlace);
-    drawMap(datFile);
-    drawPath(shortestPath, startPlace, endPlace, datFile);
+    Image map = drawMap(datFile);
+    if (map.data == nullptr) return 1;
+    drawPath(map, shortestPath, startPlace, endPlace, datFile);
+    showMap(map);
 
-    return;
+    return 0;
 } 
