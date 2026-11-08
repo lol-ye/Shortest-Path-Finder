@@ -220,10 +220,5 @@ intersection* Graph::findCommonIntersection(connection* conn1, connection* conn2
 
 int Graph::getCode(intersection* inter)
 {
-    for (int i = 0; i < intersections.size(); i++)
-    {
-        if (&intersections[i] == inter)
-            return i;
-    }
-    return -1;
+    return inter - &intersections[0];
 }
