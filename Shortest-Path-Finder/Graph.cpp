@@ -1,6 +1,8 @@
 #include "Graph.h"
 #include "HashTable.h"
 #include <limits>
+#include <queue>
+#include <functional>
 
 Graph::Graph()
 {
@@ -140,26 +142,23 @@ vector<connection*> Graph::findShortestRoute(intersection* start, intersection* 
     int startIdx = getIndex(start);
     int endIdx = getIndex(end);
     distances[startIdx] = 0.0;
-    
-    // Main Dijkstra loop
-    for (int count = 0; count < n; count++)
-    {
 
-        // Find unvisited node with smallest distance
-        double minDist = numeric_limits<double>::max();
-        int currentIdx = -1;
-        
-        for (int i = 0; i < n; i++)
-        {
-            if (!visited[i] && distances[i] < minDist)
-            {
-                minDist = distances[i];
-                currentIdx = i;
-            }
-        }
-        
-        if (currentIdx == -1 || currentIdx == endIdx) break;
-        
+    // Min heap of (distance, intersection index); smallest distance on top
+    using Entry = pair<double, int>;
+    priority_queue<Entry, vector<Entry>, greater<Entry>> pq;
+    pq.push({0.0, startIdx});
+
+    // Main Dijkstra loop
+    while (!pq.empty())
+    {
+        // Pop unvisited node with smallest distance
+        int currentIdx = pq.top().second;
+        pq.pop();
+
+        // Skip stale entries left behind when a node's distance was lowered
+        if (visited[currentIdx]) continue;
+        if (currentIdx == endIdx) break;
+
         visited[currentIdx] = true;
         intersection* current = &intersections[currentIdx];
         
@@ -177,6 +176,7 @@ vector<connection*> Graph::findShortestRoute(intersection* start, intersection* 
             {
                 distances[neighborIdx] = newDist;
                 predecessors[neighborIdx] = conn;
+                pq.push({newDist, neighborIdx});
             }
         }
     }
